@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mobile Camera Web App</title>
+    <style>
+        body {
+            margin: 0;
+            background: #111;
+            color: #fff;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+        }
+        #camera-container {
+            position: relative;
+            width: 100vw;
+            max-width: 480px;
+            aspect-ratio: 9/16;
+            background: #222;
+            overflow: hidden;
+            border-radius: 16px;
+            margin-top: 2vh;
+            box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+        }
+        video, canvas, img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 16px;
+            display: block;
+        }
+        #overlay-info {
+            position: absolute;
+            left: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.55);
+            color: #fff;
+            padding: 12px 16px 10px 10px;
+            border-bottom-left-radius: 16px;
+            font-size: 1rem;
+            line-height: 1.4;
+            max-width: 90%;
+            z-index: 2;
+            pointer-events: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+        }
+        #capture-btn, #retake-btn {
+            margin: 18px 0 0 0;
+            padding: 14px 32px;
+            font-size: 1.1rem;
+            border: none;
+            border-radius: 32px;
+            background: linear-gradient(90deg, #ff6a00, #ffb347);
+            color: #fff;
+            font-weight: bold;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        #retake-btn {
+            background: linear-gradient(90deg, #444, #888);
+        }
+        @media (max-width: 500px) {
+            #camera-container {
+                max-width: 100vw;
+                border-radius: 0;
+            }
+            #overlay-info {
+                font-size: 0.98rem;
+                padding: 10px 10px 8px 8px;
+            }
+            #capture-btn, #retake-btn {
+                width: 90vw;
+                font-size: 1rem;
+                padding: 12px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="camera-container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" style="display:none;"></canvas>
+        <img id="photo" style="display:none;" alt="Captured photo">
+        <div id="overlay-info" style="display:none;"></div>
+    </div>
+    <button id="capture-btn">📸 Capture Photo</button>
+    <button id="retake-btn" style="display:none;">🔄 Retake</button>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const photo = document.getElementById('photo');
+        const overlayInfo = document.getElementById('overlay-info');
+        const captureBtn = document.getElementById('capture-btn');
+        const retakeBtn = document.getElementById('retake-btn');
+        let stream = null;
+        let lastLocation = null;
+        let lastLocationName = null;
+
+        // Start camera
+        async function startCamera() {
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 1920 } },
+                    audio: false
+                });
+                video.srcObject = stream;
+                video.play();
+            } catch (e) {
+                alert('Camera access denied or not available.');
+            }
+        }
+
+        // Get geolocation
+        function getLocation() {
+            return new Promise((resolve, reject) => {
+                if (!navigator.geolocation) {
+                    reject('Geolocation not supported');
+                } else {
+                    navigator.geolocation.getCurrentPosition(
+                        pos => resolve(pos.coords),
+                        err => reject(err),
+                        { enableHighAccuracy: true, timeout: 10000 }
+                    );
+                }
+            });
+        }
+
+        // Reverse geocode using Nominatim
+        async function reverseGeocode(lat, lon) {
+            try {
+                const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
+                const resp = await fetch(url, { headers: { 'User-Agent': 'camera-web-app/1.0' } });
+                if (!resp.ok) return null;
+                const data = await resp.json();
+                return data.display_name || null;
+            } catch {
+                return null;
+            }
+        }
+
+        // Format timestamp
+        function formatTimestamp(ts) {
+            const d = new Date(ts);
+            return d.toLocaleString(undefined, { hour12: false });
+        }
+
+        // Overlay info on canvas
+        function drawOverlay(ctx, info, width, height) {
+            const padding = 16;
+            ctx.save();
+            ctx.font = "bold 1.1em 'Segoe UI', Arial, sans-serif";
+            ctx.textBaseline = "bottom";
+            ctx.globalAlpha = 0.7;
+            ctx.fillStyle = "#111";
+            const lines = info.split('\n');
+            const lineHeight = 26;
+            const boxHeight = lines.length * lineHeight + 10;
+            const boxWidth = Math.max(...lines.map(l => ctx.measureText(l).width)) + 24;
+            ctx.fillRect(0, height - boxHeight, boxWidth, boxHeight);
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = "#fff";
+            lines.forEach((line, i) => {
+                ctx.fillText(line, 12, height - boxHeight + (i+1)*lineHeight - 6);
+            });
+            ctx.restore();
+        }
+
+        // Capture photo and overlay info
+        async function capturePhoto() {
+            captureBtn.disabled = true;
+            let coords = null;
+            let locationName = null;
+            try {
+                coords = await getLocation();
+                lastLocation = coords;
+            } catch {
+                coords = null;
+            }
+            if (coords) {
+                locationName = await reverseGeocode(coords.latitude, coords.longitude);
+                lastLocationName = locationName;
+            }
+            // Draw video frame to canvas
+            const w = video.videoWidth;
+            const h = video.videoHeight;
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(video, 0, 0, w, h);
+
+            // Prepare overlay info
+            const ts = Date.now();
+            let info = '';
+            if (coords) {
+                info += `📍 ${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}\n`;
+            } else {
+                info += `📍 Location unavailable\n`;
+            }
+            if (locationName) {
+                info += `📌 ${locationName.split(',').slice(0,2).join(', ')}\n`;
+            } else {
+                info += `📌 Location name unavailable\n`;
+            }
+            info += `⏱️ ${formatTimestamp(ts)}`;
+
+            // Overlay info on canvas
+            drawOverlay(ctx, info, w, h);
+
+            // Show photo
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+            photo.src = dataUrl;
+            photo.style.display = '';
+            video.style.display = 'none';
+            overlayInfo.style.display = '';
+            overlayInfo.textContent = info;
+            canvas.style.display = 'none';
+            captureBtn.style.display = 'none';
+            retakeBtn.style.display = '';
+        }
+
+        // Retake photo
+        function retakePhoto() {
+            photo.style.display = 'none';
+            video.style.display = '';
+            overlayInfo.style.display = 'none';
+            captureBtn.style.display = '';
+            retakeBtn.style.display = 'none';
+            captureBtn.disabled = false;
+        }
+
+        // Init
+        startCamera();
+
+        captureBtn.addEventListener('click', capturePhoto);
+        retakeBtn.addEventListener('click', retakePhoto);
+
+        // Prevent scrolling on mobile when interacting with camera
+        document.body.addEventListener('touchmove', function(e) {
+            if (e.target.closest('#camera-container')) e.preventDefault();
+        }, { passive: false });
+    </script>
+</body>
+</html>
