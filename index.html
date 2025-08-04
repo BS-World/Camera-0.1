@@ -2,11 +2,11 @@
 <html lang="en">
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mobile Camera Web App</title>
+    <title>GPS Camera App</title>
     <style>
         body {
             margin: 0;
-            background: #111;
+            background: #10131a;
             color: #fff;
             font-family: 'Segoe UI', Arial, sans-serif;
             display: flex;
@@ -15,108 +15,228 @@
             min-height: 100vh;
             box-sizing: border-box;
         }
+        header {
+            width: 100vw;
+            max-width: 480px;
+            padding: 18px 0 8px 0;
+            text-align: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            letter-spacing: 0.03em;
+            background: linear-gradient(90deg, #232526 0%, #414345 100%);
+            color: #ffb347;
+            border-bottom: 1px solid #232526;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+        }
         #camera-container {
             position: relative;
             width: 100vw;
             max-width: 480px;
             aspect-ratio: 9/16;
-            background: #222;
+            background: #181c24;
             overflow: hidden;
-            border-radius: 16px;
+            border-radius: 18px;
             margin-top: 2vh;
             box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+            border: 1.5px solid #222;
         }
         video, canvas, img {
             width: 100%;
             height: 100%;
             object-fit: cover;
-            border-radius: 16px;
+            border-radius: 18px;
             display: block;
+            background: #222;
         }
         #overlay-info {
             position: absolute;
             left: 0;
             bottom: 0;
-            background: rgba(0,0,0,0.55);
+            background: rgba(10,12,20,0.72);
             color: #fff;
-            padding: 12px 16px 10px 10px;
-            border-bottom-left-radius: 16px;
-            font-size: 1rem;
-            line-height: 1.4;
-            max-width: 90%;
+            padding: 14px 18px 12px 14px;
+            border-bottom-left-radius: 18px;
+            font-size: 1.08rem;
+            line-height: 1.5;
+            max-width: 92%;
             z-index: 2;
             pointer-events: none;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.18);
+            font-weight: 500;
+            letter-spacing: 0.01em;
+            text-shadow: 0 1px 2px #0008;
         }
-        #capture-btn, #retake-btn {
-            margin: 18px 0 0 0;
-            padding: 14px 32px;
-            font-size: 1.1rem;
+        .btn-row {
+            display: flex;
+            gap: 14px;
+            margin-top: 22px;
+            width: 100vw;
+            max-width: 480px;
+            justify-content: center;
+        }
+        .app-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            padding: 15px 0;
+            font-size: 1.13rem;
             border: none;
             border-radius: 32px;
-            background: linear-gradient(90deg, #ff6a00, #ffb347);
+            background: linear-gradient(90deg, #ff6a00 0%, #ffb347 100%);
             color: #fff;
             font-weight: bold;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.13);
             cursor: pointer;
-            transition: background 0.2s;
+            transition: background 0.18s, box-shadow 0.18s;
+            outline: none;
+            letter-spacing: 0.02em;
+        }
+        .app-btn:active {
+            background: linear-gradient(90deg, #ffb347 0%, #ff6a00 100%);
+            box-shadow: 0 1px 4px rgba(0,0,0,0.18);
         }
         #retake-btn {
             background: linear-gradient(90deg, #444, #888);
+            color: #fff;
+        }
+        #gallery-btn {
+            background: linear-gradient(90deg, #232526 0%, #414345 100%);
+            color: #ffb347;
+            font-weight: 600;
+        }
+        #gallery-modal {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(10,12,20,0.96);
+            z-index: 100;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            padding: 32px 0 24px 0;
+        }
+        #gallery-modal h2 {
+            color: #ffb347;
+            margin-bottom: 18px;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .gallery-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 18px;
+            justify-content: center;
+            width: 96vw;
+            max-width: 460px;
+        }
+        .gallery-item {
+            background: #181c24;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px #0004;
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .gallery-item img {
+            width: 120px;
+            height: 160px;
+            object-fit: cover;
+            background: #222;
+        }
+        .gallery-caption {
+            font-size: 0.92rem;
+            color: #ffb347;
+            padding: 6px 8px 8px 8px;
+            text-align: center;
+            word-break: break-word;
+        }
+        #close-gallery {
+            margin: 0 0 18px 0;
+            padding: 8px 22px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 22px;
+            background: #232526;
+            color: #ffb347;
+            font-weight: 600;
+            cursor: pointer;
+            box-shadow: 0 1px 4px #0002;
         }
         @media (max-width: 500px) {
-            #camera-container {
+            header, #camera-container, .btn-row, #gallery-modal {
                 max-width: 100vw;
                 border-radius: 0;
             }
             #overlay-info {
-                font-size: 0.98rem;
+                font-size: 0.99rem;
                 padding: 10px 10px 8px 8px;
             }
-            #capture-btn, #retake-btn {
-                width: 90vw;
+            .app-btn {
                 font-size: 1rem;
-                padding: 12px 0;
+                padding: 13px 0;
+            }
+            .gallery-list {
+                width: 98vw;
             }
         }
     </style>
 </head>
 <body>
+    <header>GPS Camera App</header>
     <div id="camera-container">
         <video id="video" autoplay playsinline></video>
         <canvas id="canvas" style="display:none;"></canvas>
         <img id="photo" style="display:none;" alt="Captured photo">
         <div id="overlay-info" style="display:none;"></div>
     </div>
-    <button id="capture-btn">📸 Capture Photo</button>
-    <button id="retake-btn" style="display:none;">🔄 Retake</button>
-
+    <div class="btn-row">
+        <button id="capture-btn" class="app-btn">📸 Capture</button>
+        <button id="retake-btn" class="app-btn" style="display:none;">🔄 Retake</button>
+        <button id="gallery-btn" class="app-btn">🖼️ Gallery</button>
+    </div>
+    <div id="gallery-modal">
+        <button id="close-gallery">Close</button>
+        <h2>Saved Photos</h2>
+        <div class="gallery-list" id="gallery-list"></div>
+    </div>
     <script>
+        // Feature detection for compatibility
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            alert('Camera not supported in this browser.');
+        }
+
         const video = document.getElementById('video');
         const canvas = document.getElementById('canvas');
         const photo = document.getElementById('photo');
         const overlayInfo = document.getElementById('overlay-info');
         const captureBtn = document.getElementById('capture-btn');
         const retakeBtn = document.getElementById('retake-btn');
+        const galleryBtn = document.getElementById('gallery-btn');
+        const galleryModal = document.getElementById('gallery-modal');
+        const galleryList = document.getElementById('gallery-list');
+        const closeGallery = document.getElementById('close-gallery');
         let stream = null;
-        let lastLocation = null;
-        let lastLocationName = null;
 
-        // Start camera
+        // Camera start with mobile compatibility
         async function startCamera() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 1920 } },
+                    video: {
+                        facingMode: { ideal: "environment" },
+                        width: { ideal: 1280, max: 1920 },
+                        height: { ideal: 1920, max: 2560 }
+                    },
                     audio: false
                 });
                 video.srcObject = stream;
-                video.play();
+                await video.play();
             } catch (e) {
                 alert('Camera access denied or not available.');
             }
         }
 
-        // Get geolocation
+        // Geolocation
         function getLocation() {
             return new Promise((resolve, reject) => {
                 if (!navigator.geolocation) {
@@ -135,7 +255,7 @@
         async function reverseGeocode(lat, lon) {
             try {
                 const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lon}`;
-                const resp = await fetch(url, { headers: { 'User-Agent': 'camera-web-app/1.0' } });
+                const resp = await fetch(url, { headers: { 'User-Agent': 'gps-camera-app/1.0' } });
                 if (!resp.ok) return null;
                 const data = await resp.json();
                 return data.display_name || null;
@@ -152,23 +272,66 @@
 
         // Overlay info on canvas
         function drawOverlay(ctx, info, width, height) {
-            const padding = 16;
+            const padding = 18;
             ctx.save();
-            ctx.font = "bold 1.1em 'Segoe UI', Arial, sans-serif";
+            ctx.font = "bold 1.12em 'Segoe UI', Arial, sans-serif";
             ctx.textBaseline = "bottom";
-            ctx.globalAlpha = 0.7;
-            ctx.fillStyle = "#111";
+            ctx.globalAlpha = 0.75;
+            ctx.fillStyle = "#10131a";
             const lines = info.split('\n');
-            const lineHeight = 26;
-            const boxHeight = lines.length * lineHeight + 10;
-            const boxWidth = Math.max(...lines.map(l => ctx.measureText(l).width)) + 24;
+            const lineHeight = 28;
+            const boxHeight = lines.length * lineHeight + 12;
+            const boxWidth = Math.max(...lines.map(l => ctx.measureText(l).width)) + 28;
             ctx.fillRect(0, height - boxHeight, boxWidth, boxHeight);
             ctx.globalAlpha = 1;
-            ctx.fillStyle = "#fff";
+            ctx.fillStyle = "#ffb347";
             lines.forEach((line, i) => {
-                ctx.fillText(line, 12, height - boxHeight + (i+1)*lineHeight - 6);
+                ctx.fillText(line, 14, height - boxHeight + (i+1)*lineHeight - 8);
             });
             ctx.restore();
+        }
+
+        // Save photo to localStorage
+        function savePhotoToStorage(dataUrl, info, ts) {
+            let photos = [];
+            try {
+                photos = JSON.parse(localStorage.getItem('gps_camera_photos') || '[]');
+            } catch {}
+            photos.unshift({
+                dataUrl,
+                info,
+                ts
+            });
+            // Limit to 30 photos
+            if (photos.length > 30) photos = photos.slice(0, 30);
+            localStorage.setItem('gps_camera_photos', JSON.stringify(photos));
+        }
+
+        // Load gallery
+        function loadGallery() {
+            galleryList.innerHTML = '';
+            let photos = [];
+            try {
+                photos = JSON.parse(localStorage.getItem('gps_camera_photos') || '[]');
+            } catch {}
+            if (!photos.length) {
+                galleryList.innerHTML = '<div style="color:#fff;opacity:0.7;padding:32px 0;">No saved photos yet.</div>';
+                return;
+            }
+            for (const p of photos) {
+                const div = document.createElement('div');
+                div.className = 'gallery-item';
+                const img = document.createElement('img');
+                img.src = p.dataUrl;
+                img.alt = 'Saved photo';
+                img.loading = 'lazy';
+                div.appendChild(img);
+                const cap = document.createElement('div');
+                cap.className = 'gallery-caption';
+                cap.textContent = p.info.split('\n')[0] + '\n' + p.info.split('\n').slice(-1)[0];
+                div.appendChild(cap);
+                galleryList.appendChild(div);
+            }
         }
 
         // Capture photo and overlay info
@@ -178,13 +341,11 @@
             let locationName = null;
             try {
                 coords = await getLocation();
-                lastLocation = coords;
             } catch {
                 coords = null;
             }
             if (coords) {
                 locationName = await reverseGeocode(coords.latitude, coords.longitude);
-                lastLocationName = locationName;
             }
             // Draw video frame to canvas
             const w = video.videoWidth;
@@ -222,6 +383,10 @@
             canvas.style.display = 'none';
             captureBtn.style.display = 'none';
             retakeBtn.style.display = '';
+            galleryBtn.style.display = 'none';
+
+            // Save to localStorage
+            savePhotoToStorage(dataUrl, info, ts);
         }
 
         // Retake photo
@@ -231,12 +396,23 @@
             overlayInfo.style.display = 'none';
             captureBtn.style.display = '';
             retakeBtn.style.display = 'none';
+            galleryBtn.style.display = '';
             captureBtn.disabled = false;
         }
 
+        // Gallery modal
+        galleryBtn.addEventListener('click', () => {
+            loadGallery();
+            galleryModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        });
+        closeGallery.addEventListener('click', () => {
+            galleryModal.style.display = 'none';
+            document.body.style.overflow = '';
+        });
+
         // Init
         startCamera();
-
         captureBtn.addEventListener('click', capturePhoto);
         retakeBtn.addEventListener('click', retakePhoto);
 
@@ -244,6 +420,22 @@
         document.body.addEventListener('touchmove', function(e) {
             if (e.target.closest('#camera-container')) e.preventDefault();
         }, { passive: false });
+
+        // PWA: prevent screen dimming (if supported)
+        if ('wakeLock' in navigator) {
+            let wakeLock = null;
+            const requestWakeLock = async () => {
+                try {
+                    wakeLock = await navigator.wakeLock.request('screen');
+                } catch {}
+            };
+            document.addEventListener('visibilitychange', () => {
+                if (wakeLock !== null && document.visibilityState === 'visible') {
+                    requestWakeLock();
+                }
+            });
+            requestWakeLock();
+        }
     </script>
 </body>
 </html>
